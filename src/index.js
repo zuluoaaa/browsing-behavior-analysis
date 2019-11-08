@@ -21,8 +21,7 @@ function initAccessFrequancyLineChart({startTime=null,endTime=null}={}){
         let timeInter = duringTime/splitSize;
         let timeList = getTimeInterGroup(startTime,timeInter,splitSize);
         let dataList = [];
-
-        console.log(new Date(startTime),new Date(endTime),timeList,"timeLis1")
+        let pieDataMap = {};
         results.forEach((item)=>{
             for(let i in timeList){
                 if(typeof dataList[i] === "undefined"){
@@ -33,10 +32,18 @@ function initAccessFrequancyLineChart({startTime=null,endTime=null}={}){
                     break;
                 }
             }
+            let hostName = getHostName(item.url);
+            hostName = hostName.replace(".com","").replace(".cn","");
+            pieDataMap[hostName] =  pieDataMap[hostName] || 0;
+            pieDataMap[hostName] +=1;
         });
-        timeList = dateTempsToDateStrs(timeList)
-        console.log(timeList,dataList,"dataList")
+
+        let pieDataList = mapToSortList(pieDataMap);
+        timeList = dateTempsToDateStrs(timeList);
+        pieDataTransition(pieDataList);
+
         renderLineChart(timeList,dataList);
+        renderPieChart(pieDataList);
     });
 }
 
@@ -56,6 +63,18 @@ function dateTempsToDateStrs(tempList){
         return date.getHours()+":"+date.getMinutes()
     });
     return tempList;
+}
+
+function pieDataTransition(list){
+    if(list.length<10){
+        return;
+    }
+    let other = 0;
+    for(let i=list.length-1;i>10;i--){
+        other += list[i].value;
+        list.splice(i,1);
+    }
+    list.push({value:other,name:"other"});
 }
 
 function renderLineChart(date,data){
@@ -90,7 +109,7 @@ function renderLineChart(date,data){
 function renderPieChart(data){
     let option = {
 
-        title: {
+    /*    title: {
             text: 'Customized Pie',
             left: 'center',
             top: 20,
@@ -98,10 +117,10 @@ function renderPieChart(data){
                 color: '#ccc'
             }
         },
-
+*/
         tooltip : {
             trigger: 'item',
-            formatter: "{a} <br/>{b} : {c} ({d}%)"
+            formatter: "{b} : {c} ({d}%)"
         },
 
         visualMap: {
@@ -114,17 +133,11 @@ function renderPieChart(data){
         },
         series : [
             {
-                name:'访问来源',
+                //name:'访问来源',
                 type:'pie',
                 radius : '55%',
                 center: ['50%', '50%'],
-                data:[
-                    {value:335, name:'直接访问'},
-                    {value:310, name:'邮件营销'},
-                    {value:274, name:'联盟广告'},
-                    {value:235, name:'视频广告'},
-                    {value:400, name:'搜索引擎'}
-                ].sort(function (a, b) { return a.value - b.value; }),
+                data:data,
                 roseType: 'radius',
                 label: {
                     normal: {
@@ -161,6 +174,37 @@ function renderPieChart(data){
     };
     let myChart = echarts.init(document.getElementById('pieChart'));
     myChart.setOption(option);
+}
+
+
+function getHostName(url){
+  try {
+      let reg = /\.+\w+\.+\w+/;
+      if(url.match(reg)){
+          url = url.match(reg)[0];
+          return url.substring(1);
+      }else {
+          let reg = /\w+\.+\w+/;
+          url = url.match(reg)[0];
+          return url;
+      }
+  }catch (e) {
+      let reg = /\/\/+\S+\//;
+      url = url.match(reg)[0];
+      return url.substring(2,url.length-1);
+  }
+}
+
+function mapToSortList(map){
+    let list = [];
+    for(let key in map){
+        list.push({
+            value:map[key],
+            name:key
+        })
+    }
+    list.sort((a,b)=>b.value-a.value);
+    return list;
 }
 
 initAccessFrequancyLineChart({startTime:new Date().getTime()-(1000*60*60*10),endTime:new Date().getTime()});
